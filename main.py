@@ -3,6 +3,7 @@
 from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
+from multiprocessing import Lock, Pool, cpu_count
 from time import strftime, localtime, time
 
 status_color = {
@@ -14,6 +15,8 @@ status_color = {
 }
 
 scheme = "http"
+lock = Lock()
+thread_count = cpu_count()
 
 def display(status, data, start='', end='\n'):
     print(f"{start}{status_color[status]}[{status}] {Fore.BLUE}[{date.today()} {strftime('%H:%M:%S', localtime())}] {status_color[status]}{Style.BRIGHT}{data}{Fore.RESET}{Style.RESET_ALL}", end=end)
@@ -23,6 +26,41 @@ def get_arguments(*args):
     for arg in args:
         parser.add_option(arg[0], arg[1], dest=arg[2], help=arg[3])
     return parser.parse_args()[0]
+
+def login(server, username, password, scheme="http", timeout=None):
+    pass
+def brute_force(thread_index, servers, credentials, scheme="http", timeout=None):
+    successful_logins = {}
+    for credential in credentials:
+        status = ['']
+        for server in servers:
+            status = login(server, credential[0], credential[1], scheme, timeout)
+            if status[0] == True:
+                successful_logins[server] = [credential[0], credential[1]]
+                with lock:
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}@{Back.MAGENTA}{server}{Back.RESET} => {Back.MAGENTA}{Fore.BLUE}Authorized{Fore.RESET}{Back.RESET}")
+            elif status[0] == False:
+                with lock:
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}@{Back.MAGENTA}{server}{Back.RESET} => {Back.RED}{Fore.YELLOW}Access Denied{Fore.RESET}{Back.RESET}")
+            else:
+                with lock:
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}@{Back.MAGENTA}{server}{Back.RESET} => {Fore.YELLOW}Error Occured : {Back.RED}{status[0]}{Fore.RESET}{Back.RESET}")
+    return successful_logins
+def main(servers, credentials, scheme="http", timeout=None):
+    successful_logins = {}
+    pool = Pool(thread_count)
+    display('+', f"Starting {Back.MAGENTA}{thread_count} Brute Force Threads{Back.RESET}")
+    threads = []
+    total_servers = len(servers)
+    server_divisions = [servers[group*total_servers//thread_count: (group+1)*total_servers//thread_count] for group in range(thread_count)]
+    for index, server_division in enumerate(server_divisions):
+        threads.append(pool.apply_async(brute_force, (index, server_division, credentials, scheme, timeout)))
+    for thread in threads:
+        successful_logins.update(thread.get())
+    pool.close()
+    pool.join()
+    display('+', f"Threads Finished Excuting")
+    return successful_logins
 
 if __name__ == "__main__":
     arguments = get_arguments(('-s', "--server", "server", "Target phpMyAdmin Servers (seperated by ',' or File Name)"),
