@@ -34,7 +34,7 @@ def get_arguments(*args):
 def login(server, username, password, scheme="http", timeout=None):
     t1 = time()
     try:
-        response = requests.get(f"{scheme}://{server}")
+        response = requests.get(f"{scheme}://{server}", timeout=timeout)
         html = BeautifulSoup(response.content, "html.parser")
         token = html.find("input", attrs={"type": "hidden", "name": "token"}).get_attribute_list("value")[0]
         set_session = html.find("input", attrs={"type": "hidden", "name": "set_session"}).get_attribute_list("value")[0]
@@ -52,7 +52,7 @@ def login(server, username, password, scheme="http", timeout=None):
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive"
         }
-        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=f"route=%2F&lang=en&token={token}&set_session={set_session}&pma_username={quote(username)}&pma_password={quote(password)}&server={server_code}", allow_redirects=False)
+        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=f"route=%2F&lang=en&token={token}&set_session={set_session}&pma_username={quote(username)}&pma_password={quote(password)}&server={server_code}", allow_redirects=False, timeout=timeout)
         authorization_status = False if response.status_code // 100 == 2 else True
         t2 = time()
         return authorization_status, t2-t1
@@ -155,3 +155,9 @@ if __name__ == "__main__":
         arguments.write = f"{date.today()} {strftime('%H_%M_%S', localtime())}.csv"
     display('+', f"Total Servers     = {Back.MAGENTA}{len(arguments.server)}{Back.RESET}")
     display('+', f"Total Credentials = {Back.MAGENTA}{len(arguments.credentials)}{Back.RESET}")
+    T1 = time()
+    successful_logins = main(arguments.server, arguments.credentials, arguments.scheme, arguments.timeout)
+    T2 = time()
+    display(':', f"Successful Logins = {Back.MAGENTA}{len(successful_logins)}{Back.RESET}")
+    display(':', f"Time Taken        = {Back.MAGENTA}{T2-T1:.2f} seconds{Back.RESET}")
+    display(':', f"Rate              = {Back.MAGENTA}{len(arguments.credentials)/(T2-T1):.2f} logins / seconds{Back.RESET}")
