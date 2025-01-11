@@ -161,3 +161,9 @@ if __name__ == "__main__":
     display(':', f"Successful Logins = {Back.MAGENTA}{len(successful_logins)}{Back.RESET}")
     display(':', f"Time Taken        = {Back.MAGENTA}{T2-T1:.2f} seconds{Back.RESET}")
     display(':', f"Rate              = {Back.MAGENTA}{len(arguments.credentials)/(T2-T1):.2f} logins / seconds{Back.RESET}")
+    if len(successful_logins) > 0:
+        display(':', f"Dumping Successful Logins to File {Back.MAGENTA}{arguments.write}{Back.RESET}")
+        with open(arguments.write, 'w') as file:
+            file.write(f"Server,User,Password\n")
+            file.write('\n'.join([f"{server},{user},{password}" for server, (user, password) in successful_logins.items()]))
+        display('+', f"Dumped Successful Logins to File {Back.MAGENTA}{arguments.write}{Back.RESET}") 
