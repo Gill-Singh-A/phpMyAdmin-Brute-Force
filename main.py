@@ -54,8 +54,8 @@ def login(server, username, password, scheme="http", timeout=None):
         }
         post_request_data = "&".join(f"{key}={quote(value, safe='', encoding=None, errors=None)}" for key, value in data_dictionary.items())
         post_request_data += f"&pma_username={quote(username)}&pma_password={quote(password)}"
-        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=post_request_data, allow_redirects=False, timeout=timeout, verify=False)
-        authorization_status = True if response.status_code // 100 == 3 else False
+        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=post_request_data, timeout=timeout, verify=False)
+        authorization_status = True if "information_schema" in response.text and "mysql" in response.text and "performance_schema" in response.text and "sys" in response.text else False
         t2 = time()
         return authorization_status, t2-t1
     except Exception as error:
