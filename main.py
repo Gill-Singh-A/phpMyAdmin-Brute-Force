@@ -34,11 +34,11 @@ def get_arguments(*args):
 def login(server, username, password, scheme="http", timeout=None):
     t1 = time()
     try:
-        response = requests.get(f"{scheme}://{server}", timeout=timeout)
+        response = requests.get(f"{scheme}://{server}", timeout=timeout, verify=False)
         html = BeautifulSoup(response.content, "html.parser")
-        token = html.find("input", attrs={"type": "hidden", "name": "token"}).get_attribute_list("value")[0]
-        set_session = html.find("input", attrs={"type": "hidden", "name": "set_session"}).get_attribute_list("value")[0]
-        server_code = html.find("input", attrs={"type": "hidden", "name": "server"}).get_attribute_list("value")[0]
+        hidden_input_tags = html.find_all("input", attrs={"type": "hidden"})
+        data_dictionary = {tag.get_attribute_list("name")[0]: tag.get_attribute_list("value")[0] for tag in hidden_input_tags if tag.get_attribute_list("value")[0].strip() != ''}
+        set_session = [cookie for cookie in response.headers["Set-Cookie"].split(';') if "phpMyAdmin" in cookie][-1].split('=')[-1]
         headers = {
             "Host": server,
             "Cache-Control": "max-age=0",
@@ -52,8 +52,10 @@ def login(server, username, password, scheme="http", timeout=None):
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive"
         }
-        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=f"route=%2F&lang=en&token={token}&set_session={set_session}&pma_username={quote(username)}&pma_password={quote(password)}&server={server_code}", allow_redirects=False, timeout=timeout)
-        authorization_status = False if response.status_code // 100 == 2 else True
+        post_request_data = "&".join(f"{key}={quote(value, safe='', encoding=None, errors=None)}" for key, value in data_dictionary.items())
+        post_request_data += f"&pma_username={quote(username)}&pma_password={quote(password)}"
+        response = requests.post(f"{scheme}://{server}/index.php?route=/", headers=headers, data=post_request_data, allow_redirects=False, timeout=timeout, verify=False)
+        authorization_status = True if response.status_code // 100 == 3 else False
         t2 = time()
         return authorization_status, t2-t1
     except Exception as error:
